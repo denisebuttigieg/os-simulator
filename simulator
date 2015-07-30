@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>OS Sim</title>
+</head>
+<body>
+
+<script type="text/javascript">
+    var pcount = 0; //active processes counter
+    var pArr = new Array(10);
+    var pAlloc = 256; //process memory allocation {kb}
+
+    var mem = new sMMU(10);
+    console.log(mem);
+
+
+    var Process = function(pid,state,pc,regArr,br,lr){ // to add scheduling info & accounting?
+        this.pid = pid;
+        this.state = state;
+        this.pc = pc;
+        this.regArr = regArr;
+        this.br = br;
+        this.lr = lr;
+        this.memory = new ProcessMemory(pAlloc,0,0,0,0); //create memory segment for process
+        console.log("Process created. Current Active Processes : "+(pcount+1)+" . Allocated Memory = "+this.memory.allocated+"Kb");
+        fillArray(regArr);
+        //array of children processes?
+        //accounting variables? , time running , time created , time limits
+    };
+
+    function ProcessMemory(allocated,data,stack,heap,text){
+        this.allocated = allocated;
+        this.data = data;
+        this.stack = stack;
+        this.heap = heap;
+        this.text = text;
+        this.remaining = allocated - (data+stack+heap+text);
+    }
+
+    ProcessMemory.prototype.malloc = function(size) {
+        this.heap += size;
+    }
+
+    ProcessMemory.prototype.free = function(size){
+
+    }
+
+    ProcessMemory.prototype.push = function(size){
+
+    }
+
+    ProcessMemory.prototype.pop = function(size){
+
+    };
+
+    function sMMU(size){ //simulated MMU
+        this.memoryAlloc = new Array(30);// model [pid][base][limit]
+        var loc1 , loc2, loc3;
+
+        loc1 = this.memoryAlloc.length;  // 1 2 l3 4 5 l2 7 8 l1
+        loc2 = loc1 - 3;
+        loc3 = loc2 - 3;
+
+        this.memoryAlloc[loc1-2] = -1;       //pid               //kernel uses 3 blocks, kernel id : -1
+        this.memoryAlloc[loc1-1] = 0x1;      //base
+        this.memoryAlloc[loc1] = this.memoryAlloc[loc1-1] + 32767 ; //one loc  = 8bytes   1segment = 256Kb   1seg = 262,144 bytes = 32,768loc
+
+        this.memoryAlloc[loc2-2] = -1;      //pid
+        this.memoryAlloc[loc2-1] = this.memoryAlloc[loc1] +1 ;   // base
+        this.memoryAlloc[loc2] = this.memoryAlloc[loc2-1] + 32767 ; // limit
+
+        this.memoryAlloc[loc3-2] = -1;
+        this.memoryAlloc[loc3-1] = this.memoryAlloc[loc2] + 1; //base
+        this.memoryAlloc[loc3] = this.memoryAlloc[loc3-1] + 32767; //limit
+
+        //array  location model : [base][empty location start][limit] OR [base][limit] OR [pid] [base] [limit]
+        //to automatically handle memory segments of processes
+        //[pid = 0][hex][hex][pid = 1][hex][hex][pid = 2][hex][hex][null][hex][hex]
+        //[pid = 0][hex][hex][NULL][hex][hex][pid = 2][hex][hex] ... other table to keep track of empty bases for faster access
+    }
+
+    sMMU.prototype.assignMemory = function(){
+
+    }
+    sMMU.prototype.findEmptyMemory = function() {
+        var x = false ,i = 30;
+
+        do{
+           if(this.memoryAlloc[i] === undefined) {
+               x = true;
+           }else{
+               i += 3;
+               console.log(i);
+           }
+        }while(x === false);
+        return i;
+    };
+
+    console.log(mem.findEmptyMemory());
+    createProcess();
+    createProcess();
+    createProcess();
+    pArr[0].memory.malloc(10);
+    console.log("Malloc "+pArr[0].memory.heap);
+    removeProcess(1);
+    createProcess();
+    createProcess();
+    reflectProcess(pArr[0]);
+    reflectProcess(pArr[1]);
+    reflectProcess(pArr[2]);
+    reflectProcess(pArr[3]);
+
+    //reflection
+    function reflectProcess(processObj){
+        var tmp = 0;
+        for(var property in processObj){
+                if(property == "regArr") {
+                    if(tmp == 0) {
+                        document.write("<b><i>regArr : <br></b></i>");
+                        tmp++;
+                    }
+                    for(var i = 1 ; i <= 16 ; i++){
+                        document.write("<i>R</i>"+tmp+": "+ processObj.regArr[tmp-1] + "<br>");
+                        tmp++;
+                    }
+                    tmp = 0;
+
+                   // document.write(property + " : " + processObj[property] + "<br>");
+                }
+            if(typeof processObj[property] != "function" && property != "regArr" && property != "memory"){
+                document.write("<b><i>"+property +"</b></i>"+ " : " + processObj[property] + "<br>");
+            }
+        }
+        document.write("<br>");
+    }
+
+
+    function fillArray(regArr){
+        for(i=0;i<regArr.length;i++){
+            regArr[i] = Math.floor((Math.random() * 1000) + 1);
+        }
+    }
+
+    function createProcess() {
+        if(pcount > pArr.length+1){return ;}
+        var i = 0;
+        var x = false;
+
+        while(x === false){
+            if(pArr[i] == undefined){
+                pArr[i] = new Process(i,"new",i+100,new Array(16),"10000xFF","11001xA1");
+                pcount++;
+                x = true;
+            }else{
+                i++;
+            }
+        }
+    }
+
+    function removeProcess(processid){
+       if(pcount <= 0){ return ;}
+       else{
+           pArr[processid] = undefined;
+           pcount--;
+           console.log("Process with pid "+processid+" has been removed");
+       }
+
+    }
+
+    function processScheduler(){ //to update every x seconds/ms to simulate scheduling //RR FIFO
+
+
+    }
+
+    function decimalToHex(d, padding) {
+        var hex = Number(d).toString(16).toUpperCase();
+        padding = typeof (padding) === "undefined" || padding === null ? padding = 2 : padding;
+
+        while (hex.length < padding) {
+            hex = "0" + hex;
+        }
+        hex = "0x"+hex;
+        return hex;
+    }
+</script>
+
+</body>
+</html>
